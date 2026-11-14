@@ -1,0 +1,32 @@
+{
+  "name": "fitcv",
+  "private": true,
+  "version": "0.1.0",
+  "description": "FitCV — tailor your CV and cover letter to every job.",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=20.18"
+  },
+  "scripts": {
+    "dev": "npm run dev --workspaces --if-present",
+    "dev:api": "npm run dev -w @fitcv/api",
+    "dev:web": "npm run dev -w @fitcv/web",
+    "build": "npm run build -w @fitcv/api && npm run build -w @fitcv/web",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "eslint .",
+    "test": "npm run test --workspaces --if-present",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.0",
+    "eslint": "^9.39.0",
+    "globals": "^16.5.0",
+    "prettier": "^3.6.2",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.72.2"
+  }
+}

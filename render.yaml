@@ -1,0 +1,41 @@
+# Render Blueprint for the FitCV API (infrastructure as code).
+# Secrets use `sync: false` so they are entered in the dashboard, never committed.
+services:
+  - type: web
+    name: fitcv-api
+    runtime: node
+    plan: free
+    region: frankfurt
+    rootDir: .
+    buildCommand: npm ci --include=dev && npm run build -w @fitcv/api && npm run db:migrate -w @fitcv/api
+    startCommand: npm start -w @fitcv/api
+    healthCheckPath: /health
+    autoDeploy: true
+    buildFilter:
+      paths:
+        - apps/api/**
+        - packages/shared/**
+        - package-lock.json
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: '22'
+      - key: TRUST_PROXY_HOPS
+        value: '2'
+      - key: AI_PROVIDER
+        value: anthropic
+      - key: AI_DAILY_LIMIT
+        value: '30'
+      - key: WEB_ORIGIN
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_URL_DIRECT
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
