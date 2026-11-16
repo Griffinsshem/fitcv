@@ -36,8 +36,15 @@ export class AiUpstreamError extends Error {
   constructor(
     message: string,
     public readonly retryable: boolean,
+    /** Upstream HTTP status, if the provider answered at all. */
+    public readonly status?: number,
   ) {
     super(message);
+  }
+
+  /** Provider is overloaded or rate-limiting us: worth trying another model. */
+  get isCapacity(): boolean {
+    return this.status === 429 || this.status === 503 || this.status === 529;
   }
 }
 
@@ -60,6 +67,7 @@ export async function fetchWithRetry(
       lastErr = new AiUpstreamError(
         `AI provider HTTP ${res.status}: ${body.slice(0, 200)}`,
         retryable,
+        res.status,
       );
       if (!retryable) break;
     } catch (err) {

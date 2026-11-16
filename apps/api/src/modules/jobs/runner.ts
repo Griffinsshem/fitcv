@@ -15,7 +15,7 @@ import { logger } from '../../lib/logger';
 import { Semaphore } from '../../lib/semaphore';
 import { enforceIntegrity } from '../ai/integrity';
 import { analyzeJobPrompt, generatePrompt, importCvPrompt } from '../ai/prompts';
-import { generateStructured, type AiUsage } from '../ai/provider';
+import { AiUpstreamError, generateStructured, type AiUsage } from '../ai/provider';
 import { getProfile, profileIsUsable } from '../profile/service';
 
 /**
@@ -92,8 +92,7 @@ async function execute(job: AiJob, payload: Payload) {
       .where(eq(aiJobs.id, job.id));
     log.info({ ms: Date.now() - started, ...usage }, 'ai job succeeded');
   } catch (err) {
-    const safe =
-      err instanceof AppError ? err.message : 'The AI service failed to respond. Please try again.';
+    const safe = userFacingError(err);
     log.error({ err, ms: Date.now() - started }, 'ai job failed');
     await db
       .update(aiJobs)
@@ -101,6 +100,20 @@ async function execute(job: AiJob, payload: Payload) {
       .where(eq(aiJobs.id, job.id))
       .catch((e) => log.error({ err: e }, 'failed to mark job failed'));
   }
+}
+
+/** Turn any failure into a message that tells the user what to do next. */
+export function userFacingError(err: unknown): string {
+  if (err instanceof AppError) return err.message;
+  if (err instanceof AiUpstreamError) {
+    if (err.isCapacity) {
+      return 'The AI service is very busy right now. Please try again in a minute or two.';
+    }
+    if (err.status === undefined && /timeout|aborted/i.test(err.message)) {
+      return 'The AI took too long to answer. Please try again.';
+    }
+  }
+  return 'The AI service failed to respond. Please try again.';
 }
 
 type HandlerResult = { usage: AiUsage; result?: AiJob['result'] };
