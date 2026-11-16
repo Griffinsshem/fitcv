@@ -108,6 +108,8 @@ function ImportCard({ onDraft }: { onDraft: (p: MasterProfile) => void }) {
     if (job.data?.status === 'FAILED') {
       setError(job.data.error ?? 'Import failed.');
       setJobId(null);
+      // Failed runs don't count against the quota; refresh the counter.
+      void qc.invalidateQueries({ queryKey: keys.me });
     }
   }, [job.data, onDraft, qc]);
 

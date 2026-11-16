@@ -65,7 +65,11 @@ export class GeminiProvider implements AiProvider {
   readonly model = env.GEMINI_MODEL;
   private readonly models = [...new Set([env.GEMINI_MODEL, ...env.GEMINI_FALLBACK_MODELS])];
 
-  constructor(private readonly roundDelaysMs: number[] = [10_000, 25_000]) {}
+  // With Claude configured as a backup there is no point waiting on a busy
+  // Gemini: fail fast and let the provider chain switch.
+  constructor(
+    private readonly roundDelaysMs: number[] = env.ANTHROPIC_API_KEY ? [] : [10_000, 25_000],
+  ) {}
 
   async complete(req: Req) {
     let lastErr: unknown;

@@ -110,30 +110,53 @@ export function clampToSchema(value: unknown, schema: unknown): unknown {
   return value;
 }
 
-let providerPromise: Promise<AiProvider> | null = null;
+const cache = new Map<'anthropic' | 'gemini', Promise<AiProvider>>();
+
+function load(name: 'anthropic' | 'gemini'): Promise<AiProvider> {
+  let p = cache.get(name);
+  if (!p) {
+    p =
+      name === 'anthropic'
+        ? import('./anthropic').then((m) => new m.AnthropicProvider())
+        : import('./gemini').then((m) => new m.GeminiProvider());
+    cache.set(name, p);
+  }
+  return p;
+}
+
+const hasKey = (name: 'anthropic' | 'gemini') =>
+  name === 'anthropic' ? !!env.ANTHROPIC_API_KEY : !!env.GEMINI_API_KEY;
 
 export async function getProvider(): Promise<AiProvider> {
-  if (env.AI_PROVIDER === 'anthropic' && !env.ANTHROPIC_API_KEY) {
-    throw serviceUnavailable(
-      'AI_NOT_CONFIGURED',
-      'AI is not configured yet (missing ANTHROPIC_API_KEY).',
-    );
+  if (!hasKey(env.AI_PROVIDER)) {
+    const key = env.AI_PROVIDER === 'anthropic' ? 'ANTHROPIC_API_KEY' : 'GEMINI_API_KEY';
+    throw serviceUnavailable('AI_NOT_CONFIGURED', `AI is not configured yet (missing ${key}).`);
   }
-  if (env.AI_PROVIDER === 'gemini' && !env.GEMINI_API_KEY) {
-    throw serviceUnavailable(
-      'AI_NOT_CONFIGURED',
-      'AI is not configured yet (missing GEMINI_API_KEY).',
-    );
-  }
-  providerPromise ??=
-    env.AI_PROVIDER === 'anthropic'
-      ? import('./anthropic').then((m) => new m.AnthropicProvider())
-      : import('./gemini').then((m) => new m.GeminiProvider());
-  return providerPromise;
+  return load(env.AI_PROVIDER);
+}
+
+/**
+ * Primary provider first; if the other provider's key is also configured it
+ * becomes an automatic backup for outages and overload (e.g. Gemini free tier
+ * returning 503 "high demand").
+ */
+export async function getProviderChain(): Promise<AiProvider[]> {
+  const chain = [await getProvider()];
+  const other = env.AI_PROVIDER === 'anthropic' ? 'gemini' : 'anthropic';
+  if (hasKey(other)) chain.push(await load(other));
+  return chain;
+}
+
+/** Errors where trying a different provider is worthwhile. */
+function shouldTryNextProvider(err: unknown): boolean {
+  if (!(err instanceof AiUpstreamError)) return false;
+  return (
+    err.isCapacity || err.status === undefined || (err.status ?? 0) >= 500 || err.status === 404
+  );
 }
 
 export function isAiConfigured(): boolean {
-  return env.AI_PROVIDER === 'anthropic' ? !!env.ANTHROPIC_API_KEY : !!env.GEMINI_API_KEY;
+  return hasKey(env.AI_PROVIDER);
 }
 
 /**
@@ -144,13 +167,34 @@ export function isAiConfigured(): boolean {
 export async function generateStructured<T extends z.ZodType>(
   req: StructuredRequest<T>,
 ): Promise<{ data: z.infer<T>; usage: AiUsage }> {
-  const provider = await getProvider();
+  const chain = await getProviderChain();
   const jsonSchema = z.toJSONSchema(req.schema, { io: 'input', unrepresentable: 'any' }) as Record<
     string,
     unknown
   >;
   delete jsonSchema.$schema;
 
+  let lastErr: unknown;
+  for (const [i, provider] of chain.entries()) {
+    try {
+      return await runWithProvider(provider, req, jsonSchema);
+    } catch (err) {
+      lastErr = err;
+      if (i === chain.length - 1 || !shouldTryNextProvider(err)) throw err;
+      logger.warn(
+        { from: provider.name, to: chain[i + 1]?.name, status: (err as AiUpstreamError).status },
+        'AI provider unavailable, switching to backup provider',
+      );
+    }
+  }
+  throw lastErr;
+}
+
+async function runWithProvider<T extends z.ZodType>(
+  provider: AiProvider,
+  req: StructuredRequest<T>,
+  jsonSchema: Record<string, unknown>,
+): Promise<{ data: z.infer<T>; usage: AiUsage }> {
   let prompt = req.prompt;
   let inputTokens = 0;
   let outputTokens = 0;

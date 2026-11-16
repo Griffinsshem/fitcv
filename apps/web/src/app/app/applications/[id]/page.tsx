@@ -3,12 +3,14 @@
 import clsx from 'clsx';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, ArrowRight, ExternalLink, Sparkles, Trash2 } from 'lucide-react';
 import { APPLICATION_STATUSES, STATUS_LABELS, type ApplicationStatus } from '@fitcv/shared';
 import { Alert, Badge, Button, Card, ScoreRing, Select, Spinner } from '@/components/ui';
 import { errorMessage } from '@/lib/api';
 import {
+  keys,
   useApplication,
   useDeleteApplication,
   useStartJob,
@@ -34,6 +36,15 @@ export default function ApplicationPage() {
   const del = useDeleteApplication();
   const [tab, setTab] = useState<Tab>('match');
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const qc = useQueryClient();
+  const jobState = app.data?.activeJob?.status;
+
+  // When an AI run finishes (either way), refresh the usage counter.
+  useEffect(() => {
+    if (jobState === 'SUCCEEDED' || jobState === 'FAILED') {
+      void qc.invalidateQueries({ queryKey: keys.me });
+    }
+  }, [jobState, qc]);
 
   if (app.isPending) return <Spinner />;
   if (app.error) return <Alert>{errorMessage(app.error)}</Alert>;
