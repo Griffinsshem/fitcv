@@ -1,24 +1,39 @@
 'use client';
 
+import clsx from 'clsx';
 import Link from 'next/link';
 import { useMemo } from 'react';
-import { Briefcase, Plus, UserRound } from 'lucide-react';
+import { ArrowRight, Briefcase, FileCheck2, Plus, UserRound } from 'lucide-react';
 import {
   APPLICATION_STATUSES,
   STATUS_LABELS,
   type ApplicationStatus,
   type ApplicationSummary,
 } from '@fitcv/shared';
-import { Alert, Badge, EmptyState, Select, Spinner } from '@/components/ui';
+import { Alert, EmptyState, Select, Skeleton, scoreColor } from '@/components/ui';
 import { errorMessage } from '@/lib/api';
 import { useApplications, useProfile, useUpdateApplication } from '@/lib/queries';
 
 const BOARD: ApplicationStatus[] = ['SAVED', 'APPLIED', 'INTERVIEWING', 'OFFER'];
 const CLOSED: ApplicationStatus[] = ['REJECTED', 'WITHDRAWN'];
+const DOT: Record<ApplicationStatus, string> = {
+  SAVED: 'bg-slate-400',
+  APPLIED: 'bg-sky-500',
+  INTERVIEWING: 'bg-amber-500',
+  OFFER: 'bg-accent',
+  REJECTED: 'bg-rose-400',
+  WITHDRAWN: 'bg-slate-300',
+};
 
-function scoreTone(s: number | null) {
-  if (s === null) return 'neutral' as const;
-  return s >= 75 ? ('accent' as const) : s >= 50 ? ('warn' as const) : ('danger' as const);
+function NewButton({ label = 'New application' }: { label?: string }) {
+  return (
+    <Link
+      href="/app/applications/new"
+      className="inline-flex h-10 items-center gap-2 rounded-[10px] bg-accent px-4 text-sm font-medium text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.15)] transition-all duration-200 hover:bg-accent-strong hover:shadow-[var(--shadow-accent)] active:translate-y-px"
+    >
+      <Plus className="size-4" aria-hidden /> {label}
+    </Link>
+  );
 }
 
 function StatusSelect({ app }: { app: ApplicationSummary }) {
@@ -29,8 +44,7 @@ function StatusSelect({ app }: { app: ApplicationSummary }) {
       value={app.status}
       disabled={update.isPending}
       onChange={(e) => update.mutate({ status: e.target.value as ApplicationStatus })}
-      className="h-8 w-32 text-xs"
-      onClick={(e) => e.stopPropagation()}
+      className="!h-8 !w-[7.5rem] !rounded-lg !px-2.5 text-xs"
     >
       {APPLICATION_STATUSES.map((s) => (
         <option key={s} value={s}>
@@ -44,18 +58,49 @@ function StatusSelect({ app }: { app: ApplicationSummary }) {
 function AppCard({ app }: { app: ApplicationSummary }) {
   const score = app.tailoredScore ?? app.matchScore;
   return (
-    <div className="rounded-lg border border-line bg-paper p-3.5 transition-shadow hover:shadow-sm">
-      <div className="flex items-start justify-between gap-2">
-        <Link href={`/app/applications/${app.id}`} className="block min-w-0">
-          <p className="truncate text-sm font-semibold">{app.jobTitle}</p>
+    <article className="group relative rounded-xl bg-paper p-4 shadow-[var(--shadow-soft)] ring-1 ring-line/80 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[var(--shadow-lift)] hover:ring-line-strong">
+      <div className="flex items-start justify-between gap-3">
+        <Link
+          href={`/app/applications/${app.id}`}
+          className="min-w-0 after:absolute after:inset-0 after:rounded-xl after:content-['']"
+        >
+          <h3 className="truncate text-[15px] font-semibold tracking-tight">{app.jobTitle}</h3>
           <p className="truncate text-sm text-muted">{app.company}</p>
         </Link>
-        {score !== null && <Badge tone={scoreTone(score)}>{score}%</Badge>}
+        {score !== null && (
+          <span
+            className="tabular shrink-0 text-lg font-semibold tracking-tight"
+            style={{ color: scoreColor(score) }}
+            title={app.tailoredScore !== null ? 'Tailored CV match' : 'Profile match'}
+          >
+            {score}
+            <span className="text-xs font-medium">%</span>
+          </span>
+        )}
       </div>
-      <div className="mt-3 flex items-center justify-between gap-2">
+      {/* Controls sit above the full-card link. */}
+      <div className="relative z-10 mt-4 flex items-center justify-between gap-2">
         <StatusSelect app={app} />
-        {app.hasDocuments && <Badge>CV ready</Badge>}
+        {app.hasDocuments && (
+          <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-xs font-medium text-accent-strong">
+            <FileCheck2 className="size-3.5" aria-hidden /> CV ready
+          </span>
+        )}
       </div>
+    </article>
+  );
+}
+
+function BoardSkeleton() {
+  return (
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4" aria-label="Loading applications">
+      {BOARD.map((s) => (
+        <div key={s} className="space-y-3 rounded-2xl bg-sunk/60 p-3">
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-[104px] w-full !rounded-xl" />
+          <Skeleton className="h-[104px] w-full !rounded-xl" />
+        </div>
+      ))}
     </div>
   );
 }
@@ -74,69 +119,75 @@ export default function ApplicationsPage() {
   }, [apps.data]);
 
   const closed = CLOSED.flatMap((s) => grouped[s]);
+  const total = apps.data?.length ?? 0;
+  const active = total - closed.length;
 
   return (
     <div>
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+      <div className="mb-8 flex flex-wrap items-end justify-between gap-5">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Applications</h1>
-          <p className="mt-1 text-sm text-muted">
-            Every job you are going after, from saved to offer.
+          <h1 className="display text-4xl">Applications</h1>
+          <p className="mt-2 text-sm text-muted">
+            {total === 0 ? (
+              'Every job you are going after, from saved to offer.'
+            ) : (
+              <span className="tabular">
+                {active} active · {grouped.INTERVIEWING.length} interviewing ·{' '}
+                {grouped.OFFER.length} {grouped.OFFER.length === 1 ? 'offer' : 'offers'}
+              </span>
+            )}
           </p>
         </div>
-        <Link
-          href="/app/applications/new"
-          className="inline-flex h-10 items-center gap-2 rounded-lg bg-accent px-4 text-sm font-medium text-white hover:bg-accent-strong"
-        >
-          <Plus className="size-4" aria-hidden /> New application
-        </Link>
+        <NewButton />
       </div>
 
       {profileEmpty && (
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-card border border-accent/20 bg-accent-soft/50 px-4 py-3">
-          <p className="text-sm text-accent-strong">
-            <strong>Start with your profile.</strong> FitCV tailors from it, so the better it is,
-            the better every CV.
-          </p>
-          <Link
-            href="/app/profile"
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-accent-strong underline-offset-2 hover:underline"
-          >
-            <UserRound className="size-4" aria-hidden /> Set up profile
-          </Link>
-        </div>
+        <Link
+          href="/app/profile"
+          className="group mb-8 flex items-center justify-between gap-4 rounded-2xl bg-accent-faint px-5 py-4 ring-1 ring-accent/15 transition-colors hover:bg-accent-soft/60"
+        >
+          <div className="flex items-center gap-4">
+            <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-paper text-accent shadow-[var(--shadow-soft)]">
+              <UserRound className="size-5" strokeWidth={1.75} aria-hidden />
+            </span>
+            <div>
+              <p className="text-sm font-semibold text-ink">Start with your profile</p>
+              <p className="text-sm text-ink-soft">
+                Every tailored CV is built from it. Upload your CV and it fills in for you.
+              </p>
+            </div>
+          </div>
+          <ArrowRight
+            className="size-4 shrink-0 text-accent transition-transform group-hover:translate-x-0.5"
+            aria-hidden
+          />
+        </Link>
       )}
 
       {apps.isPending ? (
-        <Spinner />
+        <BoardSkeleton />
       ) : apps.error ? (
         <Alert>{errorMessage(apps.error)}</Alert>
-      ) : apps.data.length === 0 ? (
+      ) : total === 0 ? (
         <EmptyState
-          icon={<Briefcase className="size-5" />}
+          icon={<Briefcase className="size-5" strokeWidth={1.75} />}
           title="No applications yet"
           body="Add a job you want, paste its description, and FitCV will tailor your CV and cover letter to it."
-          action={
-            <Link
-              href="/app/applications/new"
-              className="inline-flex h-10 items-center gap-2 rounded-lg bg-accent px-4 text-sm font-medium text-white hover:bg-accent-strong"
-            >
-              <Plus className="size-4" aria-hidden /> Add your first job
-            </Link>
-          }
+          action={<NewButton label="Add your first job" />}
         />
       ) : (
         <>
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-4">
             {BOARD.map((status) => (
               <section
                 key={status}
                 aria-label={STATUS_LABELS[status]}
-                className="rounded-card bg-canvas p-3 ring-1 ring-line"
+                className="flex flex-col rounded-2xl bg-sunk/60 p-2.5"
               >
-                <h2 className="mb-3 flex items-center justify-between px-1 text-xs font-semibold uppercase tracking-wide text-muted">
+                <h2 className="mb-2.5 flex items-center gap-2 px-1.5 pt-1 text-[13px] font-semibold text-ink-soft">
+                  <span className={clsx('size-2 rounded-full', DOT[status])} aria-hidden />
                   {STATUS_LABELS[status]}
-                  <span className="rounded-full bg-paper px-2 py-0.5 text-[11px] text-ink-soft ring-1 ring-line">
+                  <span className="tabular ml-auto text-xs font-medium text-muted">
                     {grouped[status].length}
                   </span>
                 </h2>
@@ -145,18 +196,18 @@ export default function ApplicationsPage() {
                     <AppCard key={a.id} app={a} />
                   ))}
                   {grouped[status].length === 0 && (
-                    <p className="px-1 py-4 text-center text-xs text-muted">Nothing here</p>
+                    <p className="rounded-xl border border-dashed border-line-strong/70 px-3 py-6 text-center text-xs text-muted">
+                      Nothing here yet
+                    </p>
                   )}
                 </div>
               </section>
             ))}
           </div>
           {closed.length > 0 && (
-            <section className="mt-8">
-              <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">
-                Closed ({closed.length})
-              </h2>
-              <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
+            <section className="mt-10">
+              <h2 className="eyebrow mb-3">Closed · {closed.length}</h2>
+              <div className="grid gap-2.5 opacity-80 sm:grid-cols-2 lg:grid-cols-4">
                 {closed.map((a) => (
                   <AppCard key={a.id} app={a} />
                 ))}

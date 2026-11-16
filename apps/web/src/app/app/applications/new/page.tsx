@@ -34,7 +34,7 @@ export default function NewApplicationPage() {
       >
         <ArrowLeft className="size-4" aria-hidden /> Applications
       </Link>
-      <h1 className="text-2xl font-semibold tracking-tight">New application</h1>
+      <h1 className="display mt-2 text-4xl">New application</h1>
       <p className="mt-1 text-sm text-muted">
         Paste the full job posting. The more detail, the sharper the tailoring.
       </p>

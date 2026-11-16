@@ -1,12 +1,13 @@
 'use client';
 
+import clsx from 'clsx';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { useFieldArray, useForm, type Control, type UseFormRegister } from 'react-hook-form';
-import { Plus, Trash2, Upload } from 'lucide-react';
+import { Loader2, Plus, Trash2, Upload } from 'lucide-react';
 import { MasterProfileSchema, type MasterProfile } from '@fitcv/shared';
-import { Alert, Button, Card, Field, Input, Spinner, Textarea } from '@/components/ui';
+import { Alert, Button, Card, Field, Input, Skeleton, Textarea } from '@/components/ui';
 import { api, errorMessage } from '@/lib/api';
 import { keys, useJob, useProfile, useSaveProfile } from '@/lib/queries';
 
@@ -131,19 +132,16 @@ function ImportCard({ onDraft }: { onDraft: (p: MasterProfile) => void }) {
   }
 
   const busy = uploading || !!jobId;
+  const [dragging, setDragging] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    if (!busy) return setElapsed(0);
+    const t = setInterval(() => setElapsed((e) => e + 1), 1000);
+    return () => clearInterval(t);
+  }, [busy]);
+
   return (
-    <Card className="flex flex-wrap items-center justify-between gap-4 border-dashed p-5">
-      <div>
-        <h2 className="font-semibold">Import from your existing CV</h2>
-        <p className="mt-0.5 text-sm text-muted">
-          PDF or Word, up to 4 MB. You review everything before it is saved.
-        </p>
-        {error && (
-          <div className="mt-3">
-            <Alert>{error}</Alert>
-          </div>
-        )}
-      </div>
+    <div>
       <input
         ref={inputRef}
         type="file"
@@ -152,14 +150,70 @@ function ImportCard({ onDraft }: { onDraft: (p: MasterProfile) => void }) {
         id="cv-upload"
         onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])}
       />
-      {busy ? (
-        <Spinner label={uploading ? 'Uploading…' : 'Reading your CV…'} />
-      ) : (
-        <Button variant="secondary" onClick={() => inputRef.current?.click()}>
-          <Upload className="size-4" aria-hidden /> Upload CV
-        </Button>
+      <label
+        htmlFor="cv-upload"
+        onDragOver={(e) => {
+          e.preventDefault();
+          if (!busy) setDragging(true);
+        }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragging(false);
+          const f = e.dataTransfer.files?.[0];
+          if (f && !busy) void onFile(f);
+        }}
+        aria-disabled={busy}
+        className={clsx(
+          'group relative flex cursor-pointer flex-col items-center gap-3 overflow-hidden rounded-2xl border-2 border-dashed px-6 py-9 text-center transition-all duration-200 sm:flex-row sm:text-left',
+          busy && 'pointer-events-none cursor-default',
+          dragging
+            ? 'border-accent bg-accent-faint'
+            : 'border-line-strong/80 bg-paper hover:border-accent/50 hover:bg-accent-faint/50',
+        )}
+      >
+        <span
+          className={clsx(
+            'grid size-12 shrink-0 place-items-center rounded-xl transition-colors',
+            busy || dragging
+              ? 'bg-accent text-white'
+              : 'bg-accent-soft text-accent group-hover:bg-accent group-hover:text-white',
+          )}
+        >
+          {busy ? (
+            <Loader2 className="size-5 animate-spin" aria-hidden />
+          ) : (
+            <Upload className="size-5" strokeWidth={1.75} aria-hidden />
+          )}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block font-semibold">
+            {uploading
+              ? 'Uploading…'
+              : jobId
+                ? 'Reading your CV…'
+                : dragging
+                  ? 'Drop to import'
+                  : 'Import from your existing CV'}
+          </span>
+          <span className="tabular mt-0.5 block text-sm text-muted">
+            {busy
+              ? `${elapsed}s · usually under a minute. Nothing is saved until you review it.`
+              : 'Drag a PDF or Word file here, or click to choose. Up to 4 MB.'}
+          </span>
+        </span>
+        {!busy && (
+          <span className="hidden rounded-[10px] bg-paper px-4 py-2 text-sm font-medium shadow-[var(--shadow-soft)] ring-1 ring-line transition-colors group-hover:ring-accent/40 sm:block">
+            Choose file
+          </span>
+        )}
+      </label>
+      {error && (
+        <div className="mt-3">
+          <Alert>{error}</Alert>
+        </div>
       )}
-    </Card>
+    </div>
   );
 }
 
@@ -506,7 +560,14 @@ export default function ProfilePage() {
     if (profile.data) reset(toForm(profile.data.profile));
   }, [profile.data, reset]);
 
-  if (profile.isPending) return <Spinner />;
+  if (profile.isPending)
+    return (
+      <div className="mx-auto max-w-3xl space-y-6" aria-label="Loading profile">
+        <Skeleton className="h-10 w-56" />
+        <Skeleton className="h-28 w-full !rounded-2xl" />
+        <Skeleton className="h-72 w-full !rounded-2xl" />
+      </div>
+    );
   if (profile.error) return <Alert>{errorMessage(profile.error)}</Alert>;
 
   const onSubmit = handleSubmit(async (values) => {
@@ -529,7 +590,7 @@ export default function ProfilePage() {
   return (
     <form onSubmit={onSubmit} className="mx-auto max-w-3xl space-y-6 pb-24" noValidate>
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Your profile</h1>
+        <h1 className="display text-4xl">Your profile</h1>
         <p className="mt-1 text-sm text-muted">
           Your master CV. Every tailored CV is built only from what is here, so include everything
           relevant.
