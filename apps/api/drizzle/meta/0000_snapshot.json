@@ -157,12 +157,8 @@
           "name": "ai_jobs_user_id_users_id_fk",
           "tableFrom": "ai_jobs",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -170,12 +166,8 @@
           "name": "ai_jobs_application_id_applications_id_fk",
           "tableFrom": "ai_jobs",
           "tableTo": "applications",
-          "columnsFrom": [
-            "application_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["application_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -343,12 +335,8 @@
           "name": "applications_user_id_users_id_fk",
           "tableFrom": "applications",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -405,12 +393,8 @@
           "name": "profiles_user_id_users_id_fk",
           "tableFrom": "profiles",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -524,12 +508,8 @@
           "name": "sessions_user_id_users_id_fk",
           "tableFrom": "sessions",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -654,41 +634,22 @@
     "public.application_status": {
       "name": "application_status",
       "schema": "public",
-      "values": [
-        "SAVED",
-        "APPLIED",
-        "INTERVIEWING",
-        "OFFER",
-        "REJECTED",
-        "WITHDRAWN"
-      ]
+      "values": ["SAVED", "APPLIED", "INTERVIEWING", "OFFER", "REJECTED", "WITHDRAWN"]
     },
     "public.ai_job_kind": {
       "name": "ai_job_kind",
       "schema": "public",
-      "values": [
-        "IMPORT_CV",
-        "ANALYZE",
-        "GENERATE"
-      ]
+      "values": ["IMPORT_CV", "ANALYZE", "GENERATE"]
     },
     "public.ai_job_status": {
       "name": "ai_job_status",
       "schema": "public",
-      "values": [
-        "PENDING",
-        "RUNNING",
-        "SUCCEEDED",
-        "FAILED"
-      ]
+      "values": ["PENDING", "RUNNING", "SUCCEEDED", "FAILED"]
     },
     "public.plan": {
       "name": "plan",
       "schema": "public",
-      "values": [
-        "FREE",
-        "PRO"
-      ]
+      "values": ["FREE", "PRO"]
     }
   },
   "schemas": {},

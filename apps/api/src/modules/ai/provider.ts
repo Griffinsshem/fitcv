@@ -78,6 +78,38 @@ export async function fetchWithRetry(
   throw lastErr;
 }
 
+/**
+ * Bring model output within the schema's size limits before validation:
+ * truncates over-long strings and arrays, and turns `null` into "missing"
+ * so zod defaults apply. Models that were not given the limits (Gemini's
+ * simplified schema) would otherwise fail validation on trivia like a bullet
+ * that is a few characters too long.
+ */
+export function clampToSchema(value: unknown, schema: unknown): unknown {
+  if (!schema || typeof schema !== 'object') return value;
+  const s = schema as Record<string, unknown>;
+  if (value === null) return undefined;
+  if (typeof value === 'string' && typeof s.maxLength === 'number') {
+    return value.trim().slice(0, s.maxLength);
+  }
+  if (Array.isArray(value)) {
+    const items = value
+      .map((v) => clampToSchema(v, s.items))
+      .filter((v) => v !== undefined && v !== '');
+    return typeof s.maxItems === 'number' ? items.slice(0, s.maxItems) : items;
+  }
+  if (typeof value === 'object' && value && s.properties && typeof s.properties === 'object') {
+    const props = s.properties as Record<string, unknown>;
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value)) {
+      const c = clampToSchema(v, props[k]);
+      if (c !== undefined) out[k] = c;
+    }
+    return out;
+  }
+  return value;
+}
+
 let providerPromise: Promise<AiProvider> | null = null;
 
 export async function getProvider(): Promise<AiProvider> {
@@ -134,7 +166,7 @@ export async function generateStructured<T extends z.ZodType>(
     inputTokens += r.inputTokens;
     outputTokens += r.outputTokens;
 
-    const parsed = req.schema.safeParse(r.output);
+    const parsed = req.schema.safeParse(clampToSchema(r.output, jsonSchema));
     if (parsed.success) {
       return {
         data: parsed.data,

@@ -109,6 +109,9 @@ export function userFacingError(err: unknown): string {
     if (err.isCapacity) {
       return 'The AI service is very busy right now. Please try again in a minute or two.';
     }
+    if (err.status === 401 || err.status === 403) {
+      return 'The AI key is invalid or not allowed. The site owner needs to check it.';
+    }
     if (err.status === undefined && /timeout|aborted/i.test(err.message)) {
       return 'The AI took too long to answer. Please try again.';
     }
