@@ -207,24 +207,27 @@ export default function Home() {
         </section>
 
         <section id="how" className="scroll-mt-8 border-y border-line/80 bg-paper">
-          <div className="mx-auto grid max-w-6xl gap-12 px-5 py-24 lg:grid-cols-[0.8fr_2fr]">
-            <div>
+          <div className="mx-auto max-w-6xl px-5 py-24">
+            <div className="mx-auto max-w-xl text-center">
               <p className="eyebrow">How it works</p>
-              <h2 className="display mt-3 text-4xl">Three steps, about a minute.</h2>
+              <h2 className="display mt-3 text-4xl sm:text-5xl">Three steps, about a minute.</h2>
             </div>
-            <ol className="grid gap-10 sm:grid-cols-3 sm:gap-6">
+            <ol className="mx-auto mt-16 grid max-w-5xl gap-12 sm:grid-cols-3 sm:gap-8">
               {steps.map((s, i) => (
-                <li key={s.title} className="relative">
-                  <div className="flex items-center gap-3">
-                    <span className="tabular grid size-8 place-items-center rounded-lg bg-accent-soft text-sm font-semibold text-accent-strong">
-                      {i + 1}
-                    </span>
-                    {i < steps.length - 1 && (
-                      <span className="hidden h-px flex-1 bg-gradient-to-r from-line-strong to-transparent sm:block" />
-                    )}
-                  </div>
-                  <h3 className="mt-5 font-semibold">{s.title}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-ink-soft">{s.body}</p>
+                <li key={s.title} className="relative flex flex-col items-center text-center">
+                  {i < steps.length - 1 && (
+                    <span
+                      className="absolute left-[calc(50%+2rem)] right-[calc(-50%+2rem)] top-5 hidden h-px bg-gradient-to-r from-line-strong via-line-strong to-line sm:block"
+                      aria-hidden
+                    />
+                  )}
+                  <span className="tabular relative grid size-10 place-items-center rounded-xl bg-accent-soft text-[15px] font-semibold text-accent-strong ring-4 ring-paper">
+                    {i + 1}
+                  </span>
+                  <h3 className="mt-6 font-semibold">{s.title}</h3>
+                  <p className="mt-2 max-w-[18rem] text-sm leading-relaxed text-ink-soft">
+                    {s.body}
+                  </p>
                 </li>
               ))}
             </ol>
